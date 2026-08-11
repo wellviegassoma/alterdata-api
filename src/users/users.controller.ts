@@ -5,13 +5,17 @@ import { CreateUserDto } from './dto/create-user.dto';
 import { UpdateUserDto } from './dto/update-user.dto';
 import { Roles } from '../auth/decorators/roles.decorator';
 
-/** Gestão de usuários internos do escritório — só ADMIN cria/edita/remove. */
+/**
+ * Gestão de usuários internos do escritório. Leitura (GET) é liberada para
+ * qualquer usuário autenticado — necessário para o seletor de "responsável"
+ * no cadastro de clientes. Criar/editar/remover continua só ADMIN.
+ */
 @Controller('usuarios-internos')
-@Roles(PapelUsuario.ADMIN)
 export class UsersController {
   constructor(private readonly usersService: UsersService) {}
 
   @Post()
+  @Roles(PapelUsuario.ADMIN)
   criar(@Body() dto: CreateUserDto) {
     return this.usersService.criar(dto);
   }
@@ -27,11 +31,13 @@ export class UsersController {
   }
 
   @Patch(':id')
+  @Roles(PapelUsuario.ADMIN)
   atualizar(@Param('id') id: string, @Body() dto: UpdateUserDto) {
     return this.usersService.atualizar(id, dto);
   }
 
   @Delete(':id')
+  @Roles(PapelUsuario.ADMIN)
   remover(@Param('id') id: string) {
     return this.usersService.remover(id);
   }
