@@ -59,6 +59,11 @@ model Cliente {
   /// Cache opcional do id sequencial da empresa no dp.pack (evita round-trip extra).
   alterdataEmpresaId String?
 
+  /// Cache do nome vindo do eContador (razão social/nome fantasia), para listar
+  /// sem precisar consultar a Alterdata a cada requisição.
+  nome         String?
+  nomeFantasia String?
+
   status       StatusCliente @default(ATIVO)
   observacoes  String?
 

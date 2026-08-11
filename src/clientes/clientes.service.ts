@@ -30,6 +30,8 @@ export class ClientesService {
       data: {
         cnpjCpf: dto.cnpjCpf,
         alterdataEmpresaId: dto.alterdataEmpresaId,
+        nome: dto.nome,
+        nomeFantasia: dto.nomeFantasia,
         status: dto.status,
         observacoes: dto.observacoes,
         responsavelInternoId: dto.responsavelInternoId,
@@ -84,6 +86,8 @@ export class ClientesService {
       where: { cnpjCpf },
       data: {
         alterdataEmpresaId: dto.alterdataEmpresaId,
+        nome: dto.nome,
+        nomeFantasia: dto.nomeFantasia,
         status: dto.status,
         observacoes: dto.observacoes,
         responsavelInternoId: dto.responsavelInternoId,
@@ -153,5 +157,56 @@ export class ClientesService {
       econtador,
       local,
     };
+  }
+
+  /**
+   * Importa como Cliente local toda empresa marcada como ativa no eContador
+   * que ainda não tenha um registro local (dedupe por cnpjCpf). Só grava os
+   * campos básicos (nome, vínculo, status ATIVO) — o resto do cadastro
+   * (contato, endereço, contrato, etc.) é completado manualmente depois.
+   */
+  async importarAtivos() {
+    const empresas = await this.buscarTodasEmpresasAtivas();
+
+    const data = empresas
+      .filter((empresa) => Boolean(empresa.cpfCnpjAlfanumerico))
+      .map((empresa) => ({
+        cnpjCpf: empresa.cpfCnpjAlfanumerico,
+        alterdataEmpresaId: empresa.id,
+        nome: empresa.nome,
+        status: 'ATIVO' as const,
+      }));
+
+    const resultado = await this.prisma.cliente.createMany({ data, skipDuplicates: true });
+
+    return {
+      totalAtivasNoEcontador: data.length,
+      importados: resultado.count,
+      jaExistiam: data.length - resultado.count,
+    };
+  }
+
+  private async buscarTodasEmpresasAtivas() {
+    const limit = 100;
+    let offset = 0;
+    const todas: Array<{ id: string; nome: string; cpfCnpjAlfanumerico: string }> = [];
+
+    for (;;) {
+      const pagina = await this.empresasService.listar({ ativa: true, offset, limit });
+      const items = Array.isArray(pagina.data) ? pagina.data : pagina.data ? [pagina.data] : [];
+
+      for (const item of items) {
+        todas.push({
+          id: item.id ?? '',
+          nome: item.attributes?.nome ?? '',
+          cpfCnpjAlfanumerico: item.attributes?.cpfCnpjAlfanumerico ?? '',
+        });
+      }
+
+      if (items.length < limit) break;
+      offset += limit;
+    }
+
+    return todas;
   }
 }

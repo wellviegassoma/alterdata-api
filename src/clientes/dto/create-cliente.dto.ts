@@ -149,6 +149,16 @@ export class CreateClienteDto {
   @IsString()
   alterdataEmpresaId?: string;
 
+  /** Cache do nome (razão social) vindo do eContador, para listagens rápidas. */
+  @IsOptional()
+  @IsString()
+  nome?: string;
+
+  /** Cache do nome fantasia vindo do eContador. */
+  @IsOptional()
+  @IsString()
+  nomeFantasia?: string;
+
   @IsOptional()
   @IsEnum(StatusClienteDto)
   status?: StatusClienteDto;
