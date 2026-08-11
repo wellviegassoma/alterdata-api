@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "node -e \"console.log('[diag] DATABASE_URL definido:', !!process.env.DATABASE_URL, '| tamanho:', (process.env.DATABASE_URL||'').length, '| ALTERDATA_TOKEN definido:', !!process.env.ALTERDATA_TOKEN)\" && npx prisma migrate deploy && node dist/main.js",
+    "startCommand": "node scripts/diag-env.js && npx prisma migrate deploy && node dist/main.js",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }
