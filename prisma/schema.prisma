@@ -1,0 +1,159 @@
+// Schema do banco próprio (Supabase Postgres) — guarda apenas os dados que
+// o eContador/ePlugin NÃO expõe. O vínculo com o cadastro da Alterdata é
+// feito por cnpjCpf (chave estável, igual ao cpfCnpjAlfanumerico do eContador).
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum StatusCliente {
+  ATIVO
+  EM_ONBOARDING
+  EM_OFFBOARDING
+  INATIVO
+}
+
+enum RegimeTributario {
+  MEI
+  SIMPLES_NACIONAL
+  LUCRO_PRESUMIDO
+  LUCRO_REAL
+  ISENTO
+}
+
+enum StatusContrato {
+  ATIVO
+  SUSPENSO
+  ENCERRADO
+}
+
+enum PapelUsuario {
+  ADMIN
+  CONTADOR
+  ANALISTA
+}
+
+model Usuario {
+  id        String   @id @default(uuid())
+  nome      String
+  email     String   @unique
+  senhaHash String
+  papel     PapelUsuario @default(CONTADOR)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  clientesResponsavel Cliente[] @relation("ResponsavelInterno")
+
+  @@map("usuarios")
+}
+
+model Cliente {
+  id     String @id @default(uuid())
+  /// Vínculo com o eContador: mesmo valor de cpfCnpjAlfanumerico da Alterdata.
+  cnpjCpf String @unique
+
+  /// Cache opcional do id sequencial da empresa no dp.pack (evita round-trip extra).
+  alterdataEmpresaId String?
+
+  status       StatusCliente @default(ATIVO)
+  observacoes  String?
+
+  responsavelInternoId String?
+  responsavelInterno   Usuario? @relation("ResponsavelInterno", fields: [responsavelInternoId], references: [id])
+
+  contatos     Contato[]
+  endereco     Endereco?
+  dadosFiscais DadosFiscais?
+  contrato     Contrato?
+  tags         ClienteTag[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("clientes")
+}
+
+model Contato {
+  id        String  @id @default(uuid())
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  nome      String
+  cargo     String?
+  telefone  String?
+  whatsapp  String?
+  email     String?
+  principal Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("contatos")
+}
+
+model Endereco {
+  id        String  @id @default(uuid())
+  clienteId String  @unique
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  cep         String?
+  rua         String?
+  numero      String?
+  complemento String?
+  bairro      String?
+  cidade      String?
+  uf          String?
+
+  @@map("enderecos")
+}
+
+model DadosFiscais {
+  id        String  @id @default(uuid())
+  clienteId String  @unique
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  regimeTributario   RegimeTributario?
+  cnaePrincipal      String?
+  inscricaoEstadual  String?
+  inscricaoMunicipal String?
+
+  @@map("dados_fiscais")
+}
+
+model Contrato {
+  id        String  @id @default(uuid())
+  clienteId String  @unique
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  valorHonorarios Decimal?        @db.Decimal(10, 2)
+  diaVencimento   Int?
+  formaPagamento  String?
+  dataInicio      DateTime?       @db.Date
+  status          StatusContrato  @default(ATIVO)
+  observacoes     String?
+
+  @@map("contratos")
+}
+
+model Tag {
+  id   String @id @default(uuid())
+  nome String @unique
+
+  clientes ClienteTag[]
+
+  @@map("tags")
+}
+
+model ClienteTag {
+  clienteId String
+  tagId     String
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+  tag       Tag     @relation(fields: [tagId], references: [id], onDelete: Cascade)
+
+  @@id([clienteId, tagId])
+  @@map("cliente_tags")
+}
