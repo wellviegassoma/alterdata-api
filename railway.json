@@ -4,7 +4,7 @@
     "builder": "NIXPACKS"
   },
   "deploy": {
-    "startCommand": "node scripts/diag-env.js && npx prisma migrate deploy && node dist/main.js",
+    "startCommand": "npx prisma migrate deploy && node dist/main.js",
     "restartPolicyType": "ON_FAILURE",
     "restartPolicyMaxRetries": 3
   }

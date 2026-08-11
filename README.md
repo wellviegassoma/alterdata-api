@@ -43,8 +43,10 @@ endereço estruturado, contrato/honorários, responsável interno, etc.). Esses 
 num Postgres próprio (Supabase), acessado via Prisma, e ligados ao cadastro do eContador pelo
 CNPJ/CPF (`cpfCnpjAlfanumerico`).
 
-- Connection string: Supabase → botão **Connect** no topo do projeto → **Direct connection**
-  (nosso backend é persistente, não serverless) → cole em `DATABASE_URL` no `.env`.
+- Connection string: Supabase → botão **Connect** no topo do projeto → **Session pooler** → cole
+  em `DATABASE_URL` no `.env`. Use o Session pooler (não "Direct connection") em hosts sem saída
+  IPv6 como Railway/Render — a Direct connection do Supabase só responde em IPv6 por padrão e dá
+  erro `P1001: Can't reach database server` nesses provedores.
 - Prisma 7 exige um *driver adapter* para conectar (não usa mais engine embutida) — já
   configurado em [`src/prisma/prisma.service.ts`](src/prisma/prisma.service.ts) via
   `@prisma/adapter-pg`.
