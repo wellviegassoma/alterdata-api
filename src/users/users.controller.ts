@@ -1,4 +1,4 @@
-import { Body, Controller, Delete, Get, Param, Patch, Post } from '@nestjs/common';
+import { Body, Controller, Delete, Get, HttpCode, HttpStatus, Param, Patch, Post } from '@nestjs/common';
 import { UsersService } from './users.service';
 import { PapelUsuario } from '@prisma/client';
 import { CreateUserDto } from './dto/create-user.dto';
@@ -38,7 +38,8 @@ export class UsersController {
 
   @Delete(':id')
   @Roles(PapelUsuario.ADMIN)
-  remover(@Param('id') id: string) {
-    return this.usersService.remover(id);
+  @HttpCode(HttpStatus.NO_CONTENT)
+  async remover(@Param('id') id: string) {
+    await this.usersService.remover(id);
   }
 }
