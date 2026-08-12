@@ -23,7 +23,7 @@ export class ClientesController {
     return this.clientesService.criar(dto);
   }
 
-  /** Importa como Cliente local toda empresa ativa no eContador que ainda não existir aqui. */
+  /** Importa/sincroniza toda empresa ativa no eContador: cria quem falta e completa nome/código/endereço de quem já existe. */
   @Post('importar-ativos')
   importarAtivos() {
     return this.clientesService.importarAtivos();

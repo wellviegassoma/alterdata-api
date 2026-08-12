@@ -46,7 +46,9 @@ model Usuario {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  clientesResponsavel Cliente[] @relation("ResponsavelInterno")
+  clientesFiscal   Cliente[] @relation("ResponsavelFiscal")
+  clientesContabil Cliente[] @relation("ResponsavelContabil")
+  clientesDp       Cliente[] @relation("ResponsavelDp")
 
   @@map("usuarios")
 }
@@ -59,16 +61,23 @@ model Cliente {
   /// Cache opcional do id sequencial da empresa no dp.pack (evita round-trip extra).
   alterdataEmpresaId String?
 
-  /// Cache do nome vindo do eContador (razão social/nome fantasia), para listar
-  /// sem precisar consultar a Alterdata a cada requisição.
+  /// Cache de dados vindos do eContador (razão social, nome fantasia, código
+  /// do cliente no eContador), para listar/ordenar sem consultar a Alterdata
+  /// a cada requisição.
   nome         String?
   nomeFantasia String?
+  codigo       String?
 
   status       StatusCliente @default(ATIVO)
   observacoes  String?
 
-  responsavelInternoId String?
-  responsavelInterno   Usuario? @relation("ResponsavelInterno", fields: [responsavelInternoId], references: [id])
+  /// Responsáveis internos do escritório, um por setor.
+  responsavelFiscalId String?
+  responsavelFiscal   Usuario? @relation("ResponsavelFiscal", fields: [responsavelFiscalId], references: [id])
+  responsavelContabilId String?
+  responsavelContabil   Usuario? @relation("ResponsavelContabil", fields: [responsavelContabilId], references: [id])
+  responsavelDpId String?
+  responsavelDp   Usuario? @relation("ResponsavelDp", fields: [responsavelDpId], references: [id])
 
   contatos     Contato[]
   endereco     Endereco?
@@ -125,6 +134,11 @@ model DadosFiscais {
   cnaePrincipal      String?
   inscricaoEstadual  String?
   inscricaoMunicipal String?
+
+  /// Não vem do eContador — a Alterdata não expõe esses dados pelo ePlugin,
+  /// precisa ser preenchido manualmente.
+  capitalSocial Decimal?  @db.Decimal(14, 2)
+  dataAbertura  DateTime? @db.Date
 
   @@map("dados_fiscais")
 }

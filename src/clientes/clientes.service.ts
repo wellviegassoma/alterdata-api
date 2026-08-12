@@ -1,4 +1,4 @@
-import { ConflictException, Injectable, NotFoundException } from '@nestjs/common';
+import { ConflictException, Injectable, Logger, NotFoundException } from '@nestjs/common';
 import { PrismaService } from '../prisma/prisma.service';
 import { EmpresasService } from '../alterdata/empresas/empresas.service';
 import { CreateClienteDto } from './dto/create-cliente.dto';
@@ -10,15 +10,47 @@ const INCLUDE_COMPLETO = {
   dadosFiscais: true,
   contrato: true,
   tags: { include: { tag: true } },
-  responsavelInterno: { select: { id: true, nome: true, email: true, papel: true } },
+  responsavelFiscal: { select: { id: true, nome: true, email: true, papel: true } },
+  responsavelContabil: { select: { id: true, nome: true, email: true, papel: true } },
+  responsavelDp: { select: { id: true, nome: true, email: true, papel: true } },
 } as const;
+
+const SELECT_BASE = {
+  id: true,
+  cnpjCpf: true,
+  alterdataEmpresaId: true,
+} as const;
+
+interface EmpresaAtivaResumo {
+  id: string;
+  nome: string;
+  cpfCnpjAlfanumerico: string;
+}
 
 @Injectable()
 export class ClientesService {
+  private readonly logger = new Logger(ClientesService.name);
+
   constructor(
     private readonly prisma: PrismaService,
     private readonly empresasService: EmpresasService,
   ) {}
+
+  private montarDadosFiscais(dto: CreateClienteDto['dadosFiscais']) {
+    if (!dto) return undefined;
+    return {
+      ...dto,
+      dataAbertura: dto.dataAbertura ? new Date(dto.dataAbertura) : undefined,
+    };
+  }
+
+  private montarContrato(dto: CreateClienteDto['contrato']) {
+    if (!dto) return undefined;
+    return {
+      ...dto,
+      dataInicio: dto.dataInicio ? new Date(dto.dataInicio) : undefined,
+    };
+  }
 
   async criar(dto: CreateClienteDto) {
     const existente = await this.prisma.cliente.findUnique({ where: { cnpjCpf: dto.cnpjCpf } });
@@ -32,19 +64,15 @@ export class ClientesService {
         alterdataEmpresaId: dto.alterdataEmpresaId,
         nome: dto.nome,
         nomeFantasia: dto.nomeFantasia,
+        codigo: dto.codigo,
         status: dto.status,
         observacoes: dto.observacoes,
-        responsavelInternoId: dto.responsavelInternoId,
+        responsavelFiscalId: dto.responsavelFiscalId,
+        responsavelContabilId: dto.responsavelContabilId,
+        responsavelDpId: dto.responsavelDpId,
         endereco: dto.endereco ? { create: dto.endereco } : undefined,
-        dadosFiscais: dto.dadosFiscais ? { create: dto.dadosFiscais } : undefined,
-        contrato: dto.contrato
-          ? {
-              create: {
-                ...dto.contrato,
-                dataInicio: dto.contrato.dataInicio ? new Date(dto.contrato.dataInicio) : undefined,
-              },
-            }
-          : undefined,
+        dadosFiscais: dto.dadosFiscais ? { create: this.montarDadosFiscais(dto.dadosFiscais) } : undefined,
+        contrato: dto.contrato ? { create: this.montarContrato(dto.contrato) } : undefined,
         contatos: dto.contatos?.length ? { create: dto.contatos } : undefined,
         tags: dto.tags?.length
           ? {
@@ -63,7 +91,7 @@ export class ClientesService {
       where: params?.status ? { status: params.status as never } : undefined,
       skip: params?.skip,
       take: params?.take ?? 50,
-      orderBy: { createdAt: 'desc' },
+      orderBy: [{ codigo: { sort: 'asc', nulls: 'last' } }, { nome: 'asc' }],
       include: INCLUDE_COMPLETO,
     });
   }
@@ -82,35 +110,28 @@ export class ClientesService {
   async atualizar(cnpjCpf: string, dto: UpdateClienteDto) {
     await this.buscarLocalOuFalhar(cnpjCpf);
 
+    const dadosFiscais = this.montarDadosFiscais(dto.dadosFiscais);
+    const contrato = this.montarContrato(dto.contrato);
+
     return this.prisma.cliente.update({
       where: { cnpjCpf },
       data: {
         alterdataEmpresaId: dto.alterdataEmpresaId,
         nome: dto.nome,
         nomeFantasia: dto.nomeFantasia,
+        codigo: dto.codigo,
         status: dto.status,
         observacoes: dto.observacoes,
-        responsavelInternoId: dto.responsavelInternoId,
+        responsavelFiscalId: dto.responsavelFiscalId,
+        responsavelContabilId: dto.responsavelContabilId,
+        responsavelDpId: dto.responsavelDpId,
         endereco: dto.endereco
           ? { upsert: { create: dto.endereco, update: dto.endereco } }
           : undefined,
-        dadosFiscais: dto.dadosFiscais
-          ? { upsert: { create: dto.dadosFiscais, update: dto.dadosFiscais } }
+        dadosFiscais: dadosFiscais
+          ? { upsert: { create: dadosFiscais, update: dadosFiscais } }
           : undefined,
-        contrato: dto.contrato
-          ? {
-              upsert: {
-                create: {
-                  ...dto.contrato,
-                  dataInicio: dto.contrato.dataInicio ? new Date(dto.contrato.dataInicio) : undefined,
-                },
-                update: {
-                  ...dto.contrato,
-                  dataInicio: dto.contrato.dataInicio ? new Date(dto.contrato.dataInicio) : undefined,
-                },
-              },
-            }
-          : undefined,
+        contrato: contrato ? { upsert: { create: contrato, update: contrato } } : undefined,
         // Contatos e tags são substituídos por completo quando enviados,
         // para manter a semântica simples (o cliente da API manda a lista final).
         contatos: dto.contatos
@@ -136,7 +157,7 @@ export class ClientesService {
 
   /**
    * Visão consolidada: dados cadastrais do eContador (via Alterdata) +
-   * dados locais (contato, endereço, contrato, responsável interno, tags).
+   * dados locais (contato, endereço, contrato, responsáveis por setor, tags).
    * Se o cliente local ainda não tiver alterdataEmpresaId, tenta um fallback
    * mais limitado usando a consulta simplificada por CNPJ.
    */
@@ -160,36 +181,118 @@ export class ClientesService {
   }
 
   /**
-   * Importa como Cliente local toda empresa marcada como ativa no eContador
-   * que ainda não tenha um registro local (dedupe por cnpjCpf). Só grava os
-   * campos básicos (nome, vínculo, status ATIVO) — o resto do cadastro
-   * (contato, endereço, contrato, etc.) é completado manualmente depois.
+   * Importa/sincroniza como Cliente local toda empresa marcada como ativa no
+   * eContador: cria quem ainda não existir (dedupe por cnpjCpf) e completa
+   * nome/nomeFantasia/código/endereço de quem já existir mas ainda não tiver
+   * esses dados preenchidos. O resto do cadastro (contato, dados fiscais,
+   * contrato) continua manual — a Alterdata não expõe isso pelo ePlugin.
    */
   async importarAtivos() {
-    const empresas = await this.buscarTodasEmpresasAtivas();
+    const empresas = (await this.buscarTodasEmpresasAtivas()).filter((e) =>
+      Boolean(e.cpfCnpjAlfanumerico),
+    );
 
-    const data = empresas
-      .filter((empresa) => Boolean(empresa.cpfCnpjAlfanumerico))
-      .map((empresa) => ({
-        cnpjCpf: empresa.cpfCnpjAlfanumerico,
-        alterdataEmpresaId: empresa.id,
-        nome: empresa.nome,
-        status: 'ATIVO' as const,
-      }));
+    const existentes = await this.prisma.cliente.findMany({
+      where: { cnpjCpf: { in: empresas.map((e) => e.cpfCnpjAlfanumerico) } },
+      select: { ...SELECT_BASE, nome: true, nomeFantasia: true, codigo: true, endereco: true },
+    });
+    const existentesPorCnpj = new Map(existentes.map((c) => [c.cnpjCpf, c]));
 
-    const resultado = await this.prisma.cliente.createMany({ data, skipDuplicates: true });
+    let criados = 0;
+    let enriquecidos = 0;
+
+    const CONCORRENCIA = 8;
+    for (let i = 0; i < empresas.length; i += CONCORRENCIA) {
+      const lote = empresas.slice(i, i + CONCORRENCIA);
+      await Promise.all(
+        lote.map(async (empresa) => {
+          try {
+            const resultado = await this.importarOuEnriquecerUm(
+              empresa,
+              existentesPorCnpj.get(empresa.cpfCnpjAlfanumerico),
+            );
+            if (resultado === 'criado') criados += 1;
+            if (resultado === 'enriquecido') enriquecidos += 1;
+          } catch (error) {
+            this.logger.warn(
+              `Falha ao importar/enriquecer ${empresa.cpfCnpjAlfanumerico}: ${(error as Error).message}`,
+            );
+          }
+        }),
+      );
+    }
 
     return {
-      totalAtivasNoEcontador: data.length,
-      importados: resultado.count,
-      jaExistiam: data.length - resultado.count,
+      totalAtivasNoEcontador: empresas.length,
+      importados: criados,
+      enriquecidos,
+      jaCompletos: empresas.length - criados - enriquecidos,
     };
   }
 
-  private async buscarTodasEmpresasAtivas() {
+  private async importarOuEnriquecerUm(
+    empresa: EmpresaAtivaResumo,
+    existente:
+      | {
+          id: string;
+          cnpjCpf: string;
+          alterdataEmpresaId: string | null;
+          nome: string | null;
+          nomeFantasia: string | null;
+          codigo: string | null;
+          endereco: { id: string } | null;
+        }
+      | undefined,
+  ): Promise<'criado' | 'enriquecido' | 'sem-mudanca'> {
+    // buscarCompletaPorId já mescla dp.pack (endereço) + identificacao
+    // (nomeFantasia/código) numa única visão, evitando chamadas redundantes.
+    const completa = empresa.id
+      ? await this.empresasService.buscarCompletaPorId(empresa.id).catch(() => null)
+      : null;
+    const detalhe = completa as { nomeFantasia?: string; codigo?: string } | null;
+    const enderecoEcontador = (completa?.endereco as string | undefined) ?? undefined;
+
+    if (!existente) {
+      await this.prisma.cliente.create({
+        data: {
+          cnpjCpf: empresa.cpfCnpjAlfanumerico,
+          alterdataEmpresaId: empresa.id,
+          nome: empresa.nome,
+          nomeFantasia: detalhe?.nomeFantasia,
+          codigo: detalhe?.codigo,
+          status: 'ATIVO',
+          endereco: enderecoEcontador ? { create: { rua: enderecoEcontador } } : undefined,
+        },
+      });
+      return 'criado';
+    }
+
+    const atualizacao: Record<string, unknown> = {};
+    if (!existente.alterdataEmpresaId && empresa.id) atualizacao.alterdataEmpresaId = empresa.id;
+    if (!existente.nome && empresa.nome) atualizacao.nome = empresa.nome;
+    if (!existente.nomeFantasia && detalhe?.nomeFantasia) atualizacao.nomeFantasia = detalhe.nomeFantasia;
+    if (!existente.codigo && detalhe?.codigo) atualizacao.codigo = detalhe.codigo;
+
+    const precisaEndereco = !existente.endereco && enderecoEcontador;
+
+    if (Object.keys(atualizacao).length === 0 && !precisaEndereco) {
+      return 'sem-mudanca';
+    }
+
+    await this.prisma.cliente.update({
+      where: { id: existente.id },
+      data: {
+        ...atualizacao,
+        endereco: precisaEndereco ? { create: { rua: enderecoEcontador } } : undefined,
+      },
+    });
+    return 'enriquecido';
+  }
+
+  private async buscarTodasEmpresasAtivas(): Promise<EmpresaAtivaResumo[]> {
     const limit = 100;
     let offset = 0;
-    const todas: Array<{ id: string; nome: string; cpfCnpjAlfanumerico: string }> = [];
+    const todas: EmpresaAtivaResumo[] = [];
 
     for (;;) {
       const pagina = await this.empresasService.listar({ ativa: true, offset, limit });

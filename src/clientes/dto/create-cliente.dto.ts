@@ -105,6 +105,16 @@ export class DadosFiscaisDto {
   @IsOptional()
   @IsString()
   inscricaoMunicipal?: string;
+
+  /** Não vem do eContador — a Alterdata não expõe pelo ePlugin, é preenchido manualmente. */
+  @IsOptional()
+  @IsNumber()
+  capitalSocial?: number;
+
+  /** Data de abertura/legalização da empresa. Também não vem do eContador. */
+  @IsOptional()
+  @IsDateString()
+  dataAbertura?: string;
 }
 
 export class ContratoDto {
@@ -159,6 +169,11 @@ export class CreateClienteDto {
   @IsString()
   nomeFantasia?: string;
 
+  /** Cache do código do cliente no eContador. */
+  @IsOptional()
+  @IsString()
+  codigo?: string;
+
   @IsOptional()
   @IsEnum(StatusClienteDto)
   status?: StatusClienteDto;
@@ -169,7 +184,15 @@ export class CreateClienteDto {
 
   @IsOptional()
   @IsString()
-  responsavelInternoId?: string;
+  responsavelFiscalId?: string;
+
+  @IsOptional()
+  @IsString()
+  responsavelContabilId?: string;
+
+  @IsOptional()
+  @IsString()
+  responsavelDpId?: string;
 
   @IsOptional()
   @ValidateNested()
