@@ -8,6 +8,8 @@ import { PrismaModule } from './prisma/prisma.module';
 import { ClientesModule } from './clientes/clientes.module';
 import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
+import { TiposDocumentoModule } from './tipos-documento/tipos-documento.module';
+import { DocumentosClienteModule } from './documentos-cliente/documentos-cliente.module';
 
 @Module({
   imports: [
@@ -20,6 +22,8 @@ import { AuthModule } from './auth/auth.module';
     AuthModule,
     AlterdataModule,
     ClientesModule,
+    TiposDocumentoModule,
+    DocumentosClienteModule,
   ],
   controllers: [AppController],
   providers: [AppService],

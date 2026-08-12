@@ -84,11 +84,52 @@ model Cliente {
   dadosFiscais DadosFiscais?
   contrato     Contrato?
   tags         ClienteTag[]
+  documentos   DocumentoCliente[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("clientes")
+}
+
+/// Catálogo de tipos de documento controlados (Alvará de Funcionamento,
+/// Vigilância Sanitária, Conselho de Classe, etc.) — extensível pelo usuário.
+model TipoDocumento {
+  id   String @id @default(uuid())
+  nome String @unique
+
+  /// Informativo, para ajudar a estimar a próxima renovação (ex.: 12 = anual).
+  periodicidadeMeses Int?
+
+  ativo Boolean @default(true)
+
+  documentos DocumentoCliente[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tipos_documento")
+}
+
+/// Um documento controlado de um cliente específico, com data de vencimento
+/// — a peça central do módulo de controle/alertas de vencimento.
+model DocumentoCliente {
+  id String @id @default(uuid())
+
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  tipoDocumentoId String
+  tipoDocumento   TipoDocumento @relation(fields: [tipoDocumentoId], references: [id])
+
+  dataEmissao    DateTime? @db.Date
+  dataVencimento DateTime  @db.Date
+  observacoes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("documentos_cliente")
 }
 
 model Contato {
