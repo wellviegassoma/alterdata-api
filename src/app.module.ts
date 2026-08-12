@@ -10,6 +10,7 @@ import { UsersModule } from './users/users.module';
 import { AuthModule } from './auth/auth.module';
 import { TiposDocumentoModule } from './tipos-documento/tipos-documento.module';
 import { DocumentosClienteModule } from './documentos-cliente/documentos-cliente.module';
+import { BackupModule } from './backup/backup.module';
 
 @Module({
   imports: [
@@ -24,6 +25,7 @@ import { DocumentosClienteModule } from './documentos-cliente/documentos-cliente
     ClientesModule,
     TiposDocumentoModule,
     DocumentosClienteModule,
+    BackupModule,
   ],
   controllers: [AppController],
   providers: [AppService],
