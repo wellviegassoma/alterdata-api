@@ -7,7 +7,16 @@ export class BackupService {
 
   /** Dump completo do banco próprio (não inclui dados do eContador, que continuam na Alterdata). */
   async gerar() {
-    const [usuarios, clientes, tiposDocumento, documentosCliente, tags] = await Promise.all([
+    const [
+      usuarios,
+      clientes,
+      tiposDocumento,
+      documentosCliente,
+      tags,
+      acessosCliente,
+      tiposObrigacaoFiscal,
+      obrigacoesCliente,
+    ] = await Promise.all([
       this.prisma.usuario.findMany({
         select: { id: true, nome: true, email: true, papel: true, createdAt: true, updatedAt: true },
       }),
@@ -23,6 +32,10 @@ export class BackupService {
       this.prisma.tipoDocumento.findMany(),
       this.prisma.documentoCliente.findMany(),
       this.prisma.tag.findMany(),
+      // senhaCifrada continua cifrada aqui — nunca é descriptografada no backup.
+      this.prisma.acessoCliente.findMany(),
+      this.prisma.tipoObrigacaoFiscal.findMany(),
+      this.prisma.obrigacaoCliente.findMany(),
     ]);
 
     return {
@@ -32,6 +45,9 @@ export class BackupService {
       tiposDocumento,
       documentosCliente,
       tags,
+      acessosCliente,
+      tiposObrigacaoFiscal,
+      obrigacoesCliente,
     };
   }
 }

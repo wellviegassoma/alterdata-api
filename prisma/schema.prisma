@@ -37,6 +37,11 @@ enum PapelUsuario {
   ANALISTA
 }
 
+enum PeriodicidadeObrigacao {
+  MENSAL
+  ANUAL
+}
+
 model Usuario {
   id        String   @id @default(uuid())
   nome      String
@@ -85,11 +90,81 @@ model Cliente {
   contrato     Contrato?
   tags         ClienteTag[]
   documentos   DocumentoCliente[]
+  acessos      AcessoCliente[]
+  obrigacoes   ObrigacaoCliente[]
 
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
   @@map("clientes")
+}
+
+/// Cofre de acessos a portais de terceiros (gov.br, prefeitura etc.) por cliente.
+/// A senha nunca é gravada em texto puro — ver src/common/crypto.util.ts.
+model AcessoCliente {
+  id        String  @id @default(uuid())
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  portal       String
+  login        String?
+  senhaCifrada String
+  observacoes  String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("acessos_cliente")
+}
+
+/// Catálogo de obrigações fiscais recorrentes (DAS, DCTF, DEFIS, ECF etc.) — extensível.
+model TipoObrigacaoFiscal {
+  id            String                  @id @default(uuid())
+  nome          String                  @unique
+  periodicidade PeriodicidadeObrigacao
+
+  /// Dia do mês em que vence (1-31).
+  diaVencimento Int
+
+  /// Só usado quando periodicidade = ANUAL (1-12).
+  mesVencimento Int?
+
+  /// Regimes tributários aos quais essa obrigação se aplica; vazio = todos.
+  regimesAplicaveis RegimeTributario[]
+
+  ativo Boolean @default(true)
+
+  obrigacoes ObrigacaoCliente[]
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@map("tipos_obrigacao_fiscal")
+}
+
+/// Uma obrigação fiscal de um cliente numa competência específica — gerada em lote
+/// (ver ObrigacoesClienteService.gerar), não digitada uma a uma.
+model ObrigacaoCliente {
+  id String @id @default(uuid())
+
+  clienteId String
+  cliente   Cliente @relation(fields: [clienteId], references: [id], onDelete: Cascade)
+
+  tipoObrigacaoId String
+  tipoObrigacao   TipoObrigacaoFiscal @relation(fields: [tipoObrigacaoId], references: [id])
+
+  /// "2026-08" (mensal) ou "2026" (anual).
+  competencia    String
+  dataVencimento DateTime  @db.Date
+  cumprida       Boolean   @default(false)
+  cumpridaEm     DateTime?
+  observacoes    String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@unique([clienteId, tipoObrigacaoId, competencia])
+  @@map("obrigacoes_cliente")
 }
 
 /// Catálogo de tipos de documento controlados (Alvará de Funcionamento,

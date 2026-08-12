@@ -11,6 +11,10 @@ import { AuthModule } from './auth/auth.module';
 import { TiposDocumentoModule } from './tipos-documento/tipos-documento.module';
 import { DocumentosClienteModule } from './documentos-cliente/documentos-cliente.module';
 import { BackupModule } from './backup/backup.module';
+import { AcessosClienteModule } from './acessos-cliente/acessos-cliente.module';
+import { TiposObrigacaoFiscalModule } from './tipos-obrigacao-fiscal/tipos-obrigacao-fiscal.module';
+import { ObrigacoesClienteModule } from './obrigacoes-cliente/obrigacoes-cliente.module';
+import { DashboardModule } from './dashboard/dashboard.module';
 
 @Module({
   imports: [
@@ -26,6 +30,10 @@ import { BackupModule } from './backup/backup.module';
     TiposDocumentoModule,
     DocumentosClienteModule,
     BackupModule,
+    AcessosClienteModule,
+    TiposObrigacaoFiscalModule,
+    ObrigacoesClienteModule,
+    DashboardModule,
   ],
   controllers: [AppController],
   providers: [AppService],
